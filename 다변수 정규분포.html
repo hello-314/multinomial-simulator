@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>다항분포 시뮬레이터</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    input { margin: 5px; padding: 5px; }
+    button { margin: 10px; padding: 8px; }
+    .prob-inputs { margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h2>🎲 다항분포 시뮬레이터 (여러 관심 값 추적)</h2>
+
+  <label>결과 종류 수: <input type="number" id="categoryCount" value="3" min="2" max="10"></label>
+  <button onclick="generateProbInputs()">확률 입력창 생성</button>
+
+  <div class="prob-inputs" id="probInputs"></div>
+
+  <label>시행 횟수 (한 번의 실험에서): <input type="number" id="trials" value="10"></label><br>
+  <label>반복 횟수 (전체 실험 횟수): <input type="number" id="repeats" value="500"></label><br>
+
+  <label>관심 값들 (쉼표로 구분, 예: 1,2): <input type="text" id="targetValues" value="1"></label><br>
+
+  <button onclick="runMultinomialSimulation()">시뮬레이션 실행</button>
+
+  <h3>🔢 결과: 관심 값들이 나온 횟수 분포</h3>
+  <pre id="result"></pre>
+  <canvas id="chart" width="800" height="400"></canvas>
+
+  <script>
+    function generateProbInputs() {
+      const count = parseInt(document.getElementById("categoryCount").value);
+      const container = document.getElementById("probInputs");
+      container.innerHTML = '';
+      for (let i = 0; i < count; i++) {
+        container.innerHTML += `종류 ${i + 1} 확률: <input type="number" step="0.01" id="prob${i}" value="${(1/count).toFixed(2)}"><br>`;
+      }
+    }
+
+    function runMultinomialSimulation() {
+      const count = parseInt(document.getElementById("categoryCount").value);
+      const n = parseInt(document.getElementById("trials").value);
+      const repeats = parseInt(document.getElementById("repeats").value);
+      const targets = document.getElementById("targetValues").value.split(',').map(v => parseInt(v.trim()) - 1);
+
+      // 확률 입력 받기
+      let probs = [];
+      for (let i = 0; i < count; i++) {
+        probs.push(parseFloat(document.getElementById(`prob${i}`).value));
+      }
+
+      const totalProb = probs.reduce((a, b) => a + b, 0);
+      if (Math.abs(totalProb - 1) > 0.001) {
+        alert("확률의 합은 1이어야 합니다.");
+        return;
+      }
+
+      // 관심 값들의 등장 횟수 빈도 테이블 초기화
+      let freq = Array(n + 1).fill(0);
+
+      for (let i = 0; i < repeats; i++) {
+        let countTarget = 0;
+        for (let j = 0; j < n; j++) {
+          let r = Math.random();
+          let cumulative = 0;
+          for (let k = 0; k < count; k++) {
+            cumulative += probs[k];
+            if (r < cumulative) {
+              if (targets.includes(k)) countTarget++;
+              break;
+            }
+          }
+        }
+        freq[countTarget]++;
+      }
+
+      // 결과 출력
+      let resultText = '';
+      freq.forEach((val, i) => {
+        if (val > 0) resultText += `${i}번 등장: ${val}회\n`;
+      });
+      document.getElementById("result").textContent = resultText;
+
+      // 그래프 출력
+      const ctx = document.getElementById('chart').getContext('2d');
+      if (window.myChart) window.myChart.destroy();
+      window.myChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: freq.map((_, i) => `${i}번`),
+          datasets: [{
+            label: `관심 값들(${targets.map(x => x + 1).join(', ')})의 등장 횟수 분포`,
+            data: freq,
+            backgroundColor: 'rgba(153, 102, 255, 0.6)',
+            borderColor: 'rgba(153, 102, 255, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          scales: {
+            x: { title: { display: true, text: '관심 값 등장 횟수' } },
+            y: { beginAtZero: true, title: { display: true, text: '빈도' } }
+          }
+        }
+      });
+    }
+
+    window.onload = generateProbInputs;
+  </script>
+</body>
+</html>
